@@ -1,0 +1,7 @@
+echo "# AnomalyDetectELT" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M LAB5
+git remote add origin https://github.com/tylerrleee/AnomalyDetectELT.git
+git push -u origin LAB5

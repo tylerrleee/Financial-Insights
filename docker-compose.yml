@@ -1,0 +1,121 @@
+
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.5.0-python3.10
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-postgres apache-airflow-providers-apache-spark pyspark kafka-python polygon-api-client psycopg2-binary
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./spark_apps:/opt/spark/apps
+  user: "${AIRFLOW_UID:-50000}:0"
+
+services:
+  # Spark Master
+  spark-master:
+    container_name: fininsights-spark-master
+    build: ./spark
+    image: spark:latest
+    entrypoint: ['/opt/entrypoint.sh', 'master']    
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+    volumes:
+      - ./spark_apps:/opt/spark/apps
+      - ./data:/opt/spark/data
+      - spark-logs:/opt/spark/spark-events
+    ports:
+      - "9090:8080"  # Spark UI
+      - "7077:7077"  # Spark Master
+
+  # Spark Workers (3 for 3GB capacity)
+  spark-worker:
+    image: spark:latest
+    entrypoint: ['/opt/entrypoint.sh', 'worker']    
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2g
+      - SPARK_WORKER_CORES=2
+    volumes:
+      - ./spark_apps:/opt/spark/apps
+      - ./data:/opt/spark/data
+    deploy:
+      replicas: 3
+
+  # PostgreSQL (Airflow + Financial Data)
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      retries: 5
+
+  # Kafka Infrastructure
+  kafka:
+    image: 'bitnami/kafka:latest'
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168  # 7 days
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824  # 1GB segments
+      KAFKA_MESSAGE_MAX_BYTES: 10485760  # 10MB max
+    ports:
+      - "9092:9092"
+
+  # Airflow Services
+  airflow-db-init:
+    <<: *airflow-common
+    command: >
+      bash -c "
+        airflow db init &&
+        airflow users create \
+          --username admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@fininsights.com \
+          --password admin123
+      "
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - airflow-db-init
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      - postgres
+      - airflow-db-init
+    restart: always
+
+volumes:
+  postgres_data:
+  spark-logs:

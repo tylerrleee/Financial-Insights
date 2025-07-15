@@ -1,0 +1,9 @@
+pyspark
+kafka-python
+psycopg2-binary
+pandas
+numpy
+scikit-learn
+polygon-api-client
+requests
+python-dateutil
