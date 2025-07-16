@@ -101,8 +101,8 @@ class Financial_Data_Producer:
 client = RESTClient(POLYGON_API_KEY)
 
 
-
-#TESTING API
+"""
+TESTING API
 aggs = []
 for a in client.list_aggs(
     "AAPL",
@@ -116,3 +116,4 @@ for a in client.list_aggs(
     aggs.append(a)
 
 print(aggs)
+"""

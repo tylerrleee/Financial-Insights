@@ -7,3 +7,4 @@ scikit-learn
 polygon-api-client
 requests
 python-dateutil
+"apache-airflow[postgres,s3]==3.0.3" apache-airflow-providers-postgres
