@@ -1,5 +1,5 @@
-# FinInsightsDash - Real-Time Financial Anomaly Detection Pipeline
-<div align="center">
+# FinInsightsDash - Real-Time Financial Anomaly Detection Pipeline (in-production as of 07/15)
+<div ">
 
 Python
 Docker

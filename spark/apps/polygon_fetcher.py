@@ -98,11 +98,11 @@ class Financial_Data_Producer:
         self.producer.flush()
         logging.info("Hourly data fetch completed")
 
-client = RESTClient('EkLVqCYnIetXf9n3IDyi7eLYRieM895T')
+client = RESTClient(POLYGON_API_KEY)
 
 
-"""
-TESTING API
+
+#TESTING API
 aggs = []
 for a in client.list_aggs(
     "AAPL",
@@ -116,4 +116,3 @@ for a in client.list_aggs(
     aggs.append(a)
 
 print(aggs)
-"""
