@@ -6,8 +6,8 @@ from polygon import RESTClient
 from kafka import KafkaProducer
 import logging
 logging.basicConfig(level=logging.INFO)
-
 from ignores.api_keys import POLYGON_API_KEY
+from spark.ticker_inputs import requested_tickers
 
 
 # Define the Polygon Client based on our free tier
@@ -56,16 +56,14 @@ class Financial_Data_Producer:
             linger_ms = 100, # 100ms batching
             compression_type = 'gzip'
         )
-        self.major_tickers = [
-            'AAPL', 'AMZN'
-        ]
+        self.tickers = requested_tickers
     
     def fetch_hourly_data(self):
         current_time = datetime.now()
         from_date = (current_time - timedelta(hours=1)).strftime('%Y-%m-%d')
         to_date = current_time.strftime('%Y-%m-%d')
 
-        for ticker in self.major_tickers:
+        for ticker in self.tickers:
             try:
                 # Fetch with rate limiting
                 aggs = self.polygon_client.get_aggregates(
