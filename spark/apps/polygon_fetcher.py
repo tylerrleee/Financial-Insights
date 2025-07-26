@@ -54,7 +54,10 @@ class Financial_Data_Producer:
             value_serializer = lambda x: json.dumps(x).encode('utf-8'),
             batch_size = 32000, # 32KB batches
             linger_ms = 100, # 100ms batching
-            compression_type = 'gzip'
+            compression_type = 'gzip',
+            acks = 'all',
+            retries=3,
+            max_in_flight_requests_per_connection=1
         )
         self.tickers = requested_tickers
     
@@ -96,7 +99,7 @@ class Financial_Data_Producer:
         self.producer.flush()
         logging.info("Hourly data fetch completed")
 
-client = RESTClient(POLYGON_API_KEY)
+#client = RESTClient(POLYGON_API_KEY)
 
 
 """

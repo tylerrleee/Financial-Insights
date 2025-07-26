@@ -5,12 +5,13 @@ from airflow.utils.task_group import TaskGroup
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.providers.standard.operators.python import PythonOperator
-
+import requests
 import logging
 import pytz
 import sys
+from kafka import KafkaConsumer
+import json
 from spark.apps.polygon_fetcher import Financial_Data_Producer
-
 import subprocess
 from spark.ticker_inputs import requested_tickers
 
@@ -70,7 +71,6 @@ def financial_anomaly_detection_dag():
         @task
         def check_kafka_health():
             """Check Kafka service health"""
-            import subprocess
             try:
                 result = subprocess.run(
                     ['kafka-topics.sh', '--bootstrap-server', 'kafka:9092', '--list'],
@@ -84,7 +84,6 @@ def financial_anomaly_detection_dag():
         @task
         def check_spark_health():
             """Check Spark cluster health"""
-            import requests
             try:
                 response = requests.get('http://spark-master:8080', timeout=30)
                 response.raise_for_status()
@@ -111,11 +110,8 @@ def financial_anomaly_detection_dag():
         @task
         def fetch_polygon_data():
             """Fetch data from Polygon API and send to Kafka"""
-            import sys
             sys.path.append('/opt/airflow/dags')
-            
-            from spark.apps.polygon_fetcher import Financial_Data_Producer
-            
+                        
             producer = Financial_Data_Producer()
             try:
                 producer.fetch_hourly_data()
@@ -128,8 +124,6 @@ def financial_anomaly_detection_dag():
         @task
         def validate_kafka_messages():
             """Validate messages were successfully sent to Kafka"""
-            from kafka import KafkaConsumer
-            import json
             
             consumer = KafkaConsumer(
                 'financial_ohlc',
@@ -344,42 +338,14 @@ def financial_anomaly_detection_dag():
             
             return {"deleted_records": deleted_count}
         
-        @task
-        def send_anomaly_alerts():
-            """Check for anomalies and send alerts"""
-            postgres_hook = PostgresHook(postgres_conn_id='postgres_default')
-            
-            # Query for recent high-confidence anomalies
-            anomaly_sql = """
-            SELECT ticker, 'price_volatility' as anomaly_type, 
-                   0.8 as confidence_score, time_stamp as detected_at
-            FROM financial_data.ohlc_table
-            WHERE time_stamp >= NOW() - INTERVAL '1 hour'
-            AND ABS((close - open) / open) > 0.05  -- >5% price change
-            """
-            
-            anomalies = postgres_hook.get_records(anomaly_sql)
-            
-            if anomalies:
-                logging.warning(f"High-confidence anomalies detected: {len(anomalies)} anomalies")
-                for anomaly in anomalies:
-                    logging.warning(f"ANOMALY ALERT: {anomaly[0]} - {anomaly[1]} (confidence: {anomaly[2]})")
-                
-                return {
-                    "anomaly_count": len(anomalies),
-                    "anomalies": [{"ticker": a[0], "type": a[1], "confidence": a[2]} for a in anomalies]
-                }
-            else:
-                logging.info("No high-confidence anomalies detected")
-                return {"anomaly_count": 0, "anomalies": []}
         
         # Execute post-processing tasks
         cleanup_result = cleanup_old_data()
-        alert_result = send_anomaly_alerts()
+        
+        #alert_result = send_anomaly_alerts()
         
         return {
             'cleanup': cleanup_result,
-            'alerts': alert_result
         }
     
     # Define task dependencies using TaskGroups
