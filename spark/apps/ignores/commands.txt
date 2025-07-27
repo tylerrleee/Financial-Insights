@@ -1,9 +1,0 @@
-  # Dashboard - TBD
-  dashboard:
-    build: ./dashboard
-    ports:
-      - "8501:8501"
-    depends_on:
-      - postgres
-    environment:
-      - DATABASE_URL=postgresql://db_user:db_password@postgres:5432/financial_data
