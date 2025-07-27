@@ -249,7 +249,7 @@ def financial_anomaly_detection_dag():
                 raise Exception("No recent data found in database")
             
             # 2. Completeness Check
-            expected_tickers = ['AAPL', 'AMZN']
+            expected_tickers = requested_tickers
             completeness_sql = """
             SELECT ticker, COUNT(*) as record_count
             FROM financial_data.ohlc_table

@@ -124,6 +124,32 @@ services:
     
     restart: unless-stopped
 
+   # Kafka Topic Initialization 
+  kafka-init:
+  image: 'bitnami/kafka:3.4.0'
+  depends_on:
+    - kafka
+  entrypoint: ['/bin/sh', '-c']
+  command: |
+    "
+    # Wait for Kafka to be ready
+    until kafka-topics.sh --bootstrap-server kafka:9092 --list; do
+      echo 'Waiting for Kafka to be ready...'
+      sleep 2
+    done
+    
+    # Create financial_ohlc topic if it doesn't exist
+    kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+      --topic financial_ohlc \
+      --partitions 2 \
+      --replication-factor 1 \
+      --config retention.ms=604800000 \
+      --config segment.ms=86400000 \
+      --config compression.type=gzip
+    
+    echo 'Topics created successfully'
+    "
+    
   # Airflow Services
   airflow-db-init:
     <<: *airflow-common
